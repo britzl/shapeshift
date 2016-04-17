@@ -1,7 +1,0 @@
-go.property("type", hash("cactus"))
-
-local animation = require "utils.animation"
-
-function init(self)
-	animation.play("#sprite", self.type)
-end

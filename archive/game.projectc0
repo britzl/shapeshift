@@ -1,0 +1,24 @@
+[project]
+title = Shapeshift
+version = 1.0
+
+[bootstrap]
+main_collection = /main/main.collectionc
+render = /render/shapeshift.renderc
+
+[input]
+game_binding = /input/game.input_bindingc
+
+[display]
+width = 640
+height = 1136
+
+[physics]
+scale = 0.02
+
+[script]
+shared_state = 1
+
+[tracking]
+app_id = 0DADB1A6DC2BEEC6
+
