@@ -1,6 +1,6 @@
 [project]
-title = My project
-version = 0.1
+title = Shapeshift
+version = 1.0
 
 [bootstrap]
 main_collection = /main/main.collectionc
