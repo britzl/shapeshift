@@ -11,6 +11,7 @@ function init(self)
 	self.score = 0
 	self.shapeshift_node = gui.get_node("shapeshift")
 	self.ability_node = gui.get_node("ability")
+	self.pause_node = gui.get_node("pause")
 	gui.set_enabled(self.shapeshift_node, false)
 	gui.set_enabled(self.ability_node, false)
 end
@@ -28,7 +29,17 @@ end
 
 function on_input(self, action_id, action)
 	if action_id == hash("touch") and action.released then
-		if gui.is_enabled(self.shapeshift_node) and gui.pick_node(self.shapeshift_node, action.screen_x, action.screen_y) then
+		if gui.pick_node(self.pause_node, action.x, action.y) then
+			if self.pause then
+				self.pause = false
+				msg.post("main:/main#gameproxy", "set_time_step", { factor = 1, mode = 1 })
+				gui.play_flipbook(self.pause_node, hash("pause"))
+			else
+				self.pause = true
+				msg.post("main:/main#gameproxy", "set_time_step", { factor = 0, mode = 1 })
+				gui.play_flipbook(self.pause_node, hash("play"))
+			end
+		elseif gui.is_enabled(self.shapeshift_node) and gui.pick_node(self.shapeshift_node, action.x, action.y) then
 			broadcast.send(hash("shapeshift"), { animal = self.animal })
 		end
 	end

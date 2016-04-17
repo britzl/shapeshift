@@ -74,6 +74,7 @@ function final(self)
 	input.release()
 	collision.unregister()
 	broadcast.unregister("shapeshift")
+	go.delete("player")
 end
 
 function update(self, dt)

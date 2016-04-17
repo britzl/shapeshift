@@ -190,6 +190,12 @@ images {
 images {
   image: "/assets/images/animal_shadow.png"
 }
+images {
+  image: "/assets/images/pause.png"
+}
+images {
+  image: "/assets/images/play.png"
+}
 margin: 0
 extrude_borders: 1
 inner_padding: 0
