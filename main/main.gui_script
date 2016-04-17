@@ -1,0 +1,12 @@
+local instructions = [[EARTHQUAKE!
+YOU BETTER GET OUT OF HERE FAST!
+
+CONTROLS:
+LEFT/RIGHT - MOVE
+UP - SLOW DOWN
+SPACE/TAP/CLICK - ABILITY
+]]
+
+function init(self)
+	gui.set_text(gui.get_node("instructions"), instructions)
+end

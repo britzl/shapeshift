@@ -1,0 +1,32 @@
+go.property("speed", 500)
+
+
+local collision = require "utils.collision"
+local effects = require "game.effects"
+
+function init(self)
+	collision.register("abyss", function()
+		collision.unregister("abyss")
+		self.falling = true
+		effects.fall_down(go.delete)
+	end)
+end
+
+function final(self)
+	collision.unregister()
+end
+
+function update(self, dt)
+	if not self.falling then
+		local pos = go.get_position()
+		pos.y = pos.y + self.speed * dt
+		if pos.y > 1300 then
+			go.delete()
+		end
+		go.set_position(pos)
+	end
+end
+
+function on_message(self, message_id, message, sender)
+	collision.on_message(message_id, message, sender)
+end

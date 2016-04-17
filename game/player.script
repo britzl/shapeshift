@@ -1,0 +1,181 @@
+go.property("speed", 250)
+go.property("animal", 1)
+
+local input = require "utils.input"
+local collision = require "utils.collision"
+local broadcast = require "utils.broadcast"
+local animation = require "utils.animation"
+local flow = require "utils.flow"
+
+local effects = require "game.effects"
+local animals = require "game.animals"
+
+local animations = { [animals.RABBIT] = hash("rabbit"), [animals.SNAKE] = hash("snake"), [animals.ELEPHANT] = hash("elephant") }
+
+local LEFT = hash("left")
+local RIGHT = hash("right")
+local UP = hash("up")
+
+local function shapeshift(self, animal)
+	if self.animal == animal then
+		return
+	end
+	msg.post("game:/hud", "shapeshift", { from_animal = self.animal, to_animal = animal })
+	self.animal = animal
+	animation.play("player#sprite", animations[self.animal])
+end
+
+local function collide_with_obstacle(self, message)
+	if not self.jumping then
+		go.delete(message.other_id)
+
+		if not self.crushing then
+			self.collision = true
+			flow.start(function()
+				local pushback_duration = 0.4
+				effects.bounce("player", 90, pushback_duration)
+	
+				local pushback_distance = self.animal == animals.ELEPHANT and 20 or 100
+				local pos = go.get_position()
+				go.cancel_animations(".", "position")
+				go.animate(".", "position.y", go.PLAYBACK_ONCE_FORWARD, pos.y + pushback_distance, go.EASING_OUTCUBIC, pushback_duration)
+	
+				flow.delay(pushback_duration)
+				effects.bounce("player", 15, 0.5)	
+	
+				self.collision = false
+			end)
+		end
+	end
+end
+
+function init(self)
+	input.acquire()
+	broadcast.register("shapeshift")
+	collision.register(hash("pickup"), function(message, sender)
+		msg.post("game:/hud", "increase_score", { amount = 50 })
+		go.delete(message.other_id)
+	end)
+	collision.register(hash("abyss"), function()
+		collision.unregister("abyss")
+		input.release()
+		effects.fall_down(go.delete)
+		broadcast.send("game_over")
+	end)
+	collision.register(hash("stone"), function(message) collide_with_obstacle(self, message) end)
+	collision.register(hash("wood"), function(message) collide_with_obstacle(self, message) end)
+	local animal = self.animal
+	self.animal = nil
+	shapeshift(self, animals.SNAKE)
+	effects.bounce("player", 15, 0.5)
+end
+
+function final(self)
+	input.release()
+	collision.unregister()
+	broadcast.unregister("shapeshift")
+end
+
+function update(self, dt)
+	flow.update()
+	
+	local pos = go.get_position()
+	
+	-- move left/right
+	if input.is_pressed(LEFT) then
+		pos.x = math.max(35, pos.x - self.speed * dt)
+	elseif input.is_pressed(RIGHT) then
+		pos.x = math.min(640 - 35, pos.x + self.speed * dt)
+	end
+	
+	-- move the player up/down the screen depending on certain conditions
+	-- move up if key up is pressed
+	if input.is_pressed(UP) then
+		pos.y = pos.y + self.speed / 2 * dt
+	-- is the player in the upper part of the screen?
+	-- move the player towards the middle
+	-- faster if a snake
+	elseif pos.y > 1156 / 2 then
+		local forward_speed = self.animal == animals.SNAKE and 50 or 10
+		pos.y = pos.y - forward_speed * dt
+	-- is the player in in the lower part of the screen?
+	-- push back towards the middle faster the closer to
+	-- the bottom
+	else
+		local distance_from_middle = (1156 / 2) - pos.y
+		pos.y = pos.y + distance_from_middle * 0.5 * dt
+	end
+	go.set_position(pos)
+end
+
+function on_message(self, message_id, message, sender)
+	flow.on_message(message_id, message, sender)
+	collision.on_message(message_id, message, sender)
+	if message_id == hash("shapeshift") then
+		shapeshift(self, message.animal)
+	end
+end
+
+function on_input(self, action_id, action)
+	input.update(action_id, action)
+	if action_id == hash("ability") and action.released and not self.collision then
+		if self.animal == animals.RABBIT then
+			if not self.jumping then
+				self.jumping = true
+				flow.start(function()
+					local jump_duration = 0.75
+					effects.bounce("player", 90, jump_duration)
+					
+					local pos = go.get_position()
+					go.cancel_animations(".", "position.y")
+					go.animate(".", "position.y", go.PLAYBACK_ONCE_FORWARD, math.max(0, pos.y - 100), go.EASING_INOUTCUBIC, jump_duration)
+	
+					go.set_scale(1)
+					go.cancel_animations("player", "scale")
+					go.animate("player", "scale", go.PLAYBACK_ONCE_PINGPONG, 1.1, go.EASING_OUTQUAD, jump_duration)
+					
+					flow.delay(jump_duration)
+					effects.bounce("player", 15, 0.5)
+					self.jumping = false
+				end)
+			end
+		elseif self.animal == animals.SNAKE then
+			if not self.rushing then
+				self.rushing = true
+				flow.start(function()
+					local speed_before = self.speed
+					self.speed = self.speed * 1.5
+					
+					local pos = go.get_position()
+					go.cancel_animations(".", "position.y")
+					go.animate(".", "position.y", go.PLAYBACK_ONCE_FORWARD, math.max(0, pos.y - 200), go.EASING_INOUTQUINT, 0.3)
+					
+					flow.delay(0.5)
+					self.rushing = false
+					self.speed = speed_before
+				end)
+			end
+		elseif self.animal == animals.ELEPHANT then
+			if not self.crushing then
+				self.crushing = true
+				flow.start(function()
+					local speed_before = self.speed
+					self.speed = 0
+					
+					local pos = go.get_position()
+					go.cancel_animations(".", "position.y")
+					go.animate(".", "position.y", go.PLAYBACK_ONCE_FORWARD, math.max(0, pos.y - 100), go.EASING_INCUBIC, 0.3)
+					
+					flow.delay(0.5)
+					self.crushing = false
+					self.speed = speed_before
+				end)
+			end
+		end
+	end
+end
+
+function on_reload(self)
+    -- Add reload-handling code here
+    -- Remove this function if not needed
+end

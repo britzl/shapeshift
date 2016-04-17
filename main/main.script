@@ -1,0 +1,35 @@
+local flow = require "utils.flow"
+local broadcast = require "utils.broadcast"
+
+
+function init(self)
+	msg.post(".", "acquire_input_focus")
+	broadcast.register("game_over")
+	
+	flow.start(function()
+		while true do
+			msg.post("#gui", "enable")
+			self.input_released = false
+			flow.until_true(function() return self.input_released end)
+			flow.load(msg.url("#gameproxy"))
+			msg.post("#gui", "disable")
+			flow.until_message(hash("game_over"))
+			flow.delay(2)
+			flow.unload(msg.url("#gameproxy"))
+		end
+	end)
+end
+
+function update(self, dt)
+	flow.update()
+end
+
+function on_message(self, message_id, message, sender)
+	flow.on_message(message_id, message, sender)
+end
+
+function on_input(self, action_id, action)
+	if action.released then
+		self.input_released = true
+	end
+end

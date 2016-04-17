@@ -1,0 +1,29 @@
+go.property("animal", 1)
+
+local collision = require "utils.collision"
+local animation = require "utils.animation"
+local broadcast = require "utils.broadcast"
+
+local effects = require "game.effects"
+local animals = require "game.animals"
+
+local animations = { [animals.ELEPHANT] = hash("round_elephant_small"), [animals.RABBIT] = hash("round_rabbit_small"), [animals.SNAKE] = hash("round_snake_small") }
+
+function init(self)
+	effects.bounce("pickup", 40, 0.5)
+	
+	animation.play("pickup#sprite", animations[self.animal])
+	
+	collision.register("player", function()
+		broadcast.send("shapeshift", { animal = self.animal })
+	end)
+end
+
+function final(self)
+	go.delete("pickup")
+	collision.unregister()
+end
+
+function on_message(self, message_id, message, sender)
+	collision.on_message(message_id, message, sender)
+end
