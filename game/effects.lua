@@ -4,8 +4,8 @@ function M.fall_down(callback)
 	local duration = 0.3
 	local rotation = 100
 	
-	go.cancel_animations("#sprite", "tint")
-	go.animate("#sprite", "tint", go.PLAYBACK_ONCE_FORWARD, vmath.vector4(0, 0, 0, 0.5), go.EASING_INBACK, duration)
+	--go.cancel_animations("#sprite", "tint")
+	--go.animate("#sprite", "tint", go.PLAYBACK_ONCE_FORWARD, vmath.vector4(0, 0, 0, 0.5), go.EASING_INBACK, duration)
 
 	go.cancel_animations(".", "euler.z")
 	go.animate(".", "euler.z", go.PLAYBACK_ONCE_FORWARD, math.random(1,2) == 1 and rotation or -rotation, go.EASING_OUTQUART, duration * 3)

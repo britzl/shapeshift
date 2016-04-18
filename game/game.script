@@ -7,17 +7,18 @@ local pickup_types = { animals.ELEPHANT, animals.RABBIT, animals.SNAKE }
 function init(self)
 	math.randomseed(os.time())
 	
+	local screen_width = sys.get_config("display.width")
 	
 	spawner.add({ "factory#stone1", "factory#stone2", "factory#stone3" }, 0.3, 0.5, 2, function(factory_url)
-		factory.create(factory_url, vmath.vector3(math.random(1,640), -100, 0))
+		factory.create(factory_url, vmath.vector3(math.random(1,screen_width), -100, 0))
 	end)
 	
 	spawner.add({ "factory#terrain" }, 0.75, 0.5, 0, function(factory_url)
-		factory.create(factory_url, vmath.vector3(math.random(1,640), -100, 0), nil, { type = terrain_types[math.random(1, #terrain_types)] })
+		factory.create(factory_url, vmath.vector3(math.random(1,screen_width), -100, 0), nil, { type = terrain_types[math.random(1, #terrain_types)] })
 	end)
 	
 	spawner.add({ "collectionfactory#pickup" }, 5, 0.5, 0, function(factory_url)
-		collectionfactory.create(factory_url, vmath.vector3(math.random(1,640), -100, 0), nil, { [hash("/container")] = { animal = pickup_types[math.random(1, #pickup_types)] }})
+		collectionfactory.create(factory_url, vmath.vector3(math.random(1,screen_width), -100, 0), nil, { [hash("/container")] = { animal = pickup_types[math.random(1, #pickup_types)] }})
 	end)
 end
 

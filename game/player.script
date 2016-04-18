@@ -16,6 +16,10 @@ local LEFT = hash("left")
 local RIGHT = hash("right")
 local UP = hash("up")
 
+local SCREEN_WIDTH = sys.get_config("display.width")
+local SCREEN_HEIGHT = sys.get_config("display.height")
+
+
 local function shapeshift(self, animal)
 	if self.animal == animal then
 		return
@@ -86,7 +90,7 @@ function update(self, dt)
 	if input.is_pressed(LEFT) then
 		pos.x = math.max(35, pos.x - self.speed * dt)
 	elseif input.is_pressed(RIGHT) then
-		pos.x = math.min(640 - 35, pos.x + self.speed * dt)
+		pos.x = math.min(SCREEN_WIDTH - 35, pos.x + self.speed * dt)
 	end
 	
 	-- move the player up/down the screen depending on certain conditions
@@ -96,14 +100,14 @@ function update(self, dt)
 	-- is the player in the upper part of the screen?
 	-- move the player towards the middle
 	-- faster if a snake
-	elseif pos.y > 1156 / 2 then
+	elseif pos.y > SCREEN_HEIGHT / 2 then
 		local forward_speed = self.animal == animals.SNAKE and 50 or 10
 		pos.y = pos.y - forward_speed * dt
 	-- is the player in in the lower part of the screen?
 	-- push back towards the middle faster the closer to
 	-- the bottom
 	else
-		local distance_from_middle = (1156 / 2) - pos.y
+		local distance_from_middle = (SCREEN_HEIGHT / 2) - pos.y
 		pos.y = pos.y + distance_from_middle * 0.5 * dt
 	end
 	go.set_position(pos)
