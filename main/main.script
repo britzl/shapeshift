@@ -1,5 +1,5 @@
-local flow = require "utils.flow"
-local broadcast = require "utils.broadcast"
+local flow = require "ludobits.m.flow"
+local broadcast = require "ludobits.m.broadcast"
 
 
 function init(self)

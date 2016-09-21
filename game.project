@@ -1,6 +1,7 @@
 [project]
 title = Shapeshift
 version = 1.0
+dependencies = https://github.com/britzl/ludobits/archive/master.zip
 
 [bootstrap]
 main_collection = /main/main.collectionc

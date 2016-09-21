@@ -1,6 +1,6 @@
-local broadcast = require "utils.broadcast"
-local input = require "utils.input"
-local flow = require "utils.flow"
+local broadcast = require "ludobits.m.broadcast"
+local input = require "ludobits.m.input"
+local flow = require "ludobits.m.flow"
 local animals = require "game.animals"
 
 local animations = { [animals.RABBIT] = hash("round_rabbit"), [animals.SNAKE] = hash("round_snake"), [animals.ELEPHANT] = hash("round_elephant") }
