@@ -2,7 +2,7 @@ go.property("animal", 1)
 
 local collision = require "utils.collision"
 local animation = require "utils.animation"
-local broadcast = require "utils.broadcast"
+local broadcast = require "ludobits.m.broadcast"
 
 local effects = require "game.effects"
 local animals = require "game.animals"
