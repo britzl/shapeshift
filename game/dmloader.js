@@ -15,7 +15,7 @@ var Combine = {
     //  lastRequestedPiece: index of last data file requested (strictly ascending)
     //  totalLoadedPieces: counts the number of data files received
 
-    //MAX_CONCURRENT_XHR: 6,	// remove comment if throttling of XHR is desired.
+    //MAX_CONCURRENT_XHR: 6,    // remove comment if throttling of XHR is desired.
 
     isCompleted: false,       // status of process
 
@@ -108,7 +108,7 @@ var Combine = {
         xhr.open('GET', this._archiveLocationFilter('/' + item.name), true);
         xhr.responseType = 'arraybuffer';
         xhr.onprogress = function(evt) {
-	    target.progress[item.name] = {};
+           target.progress[item.name] = {total: 0, downloaded: 0};
             if (evt.total && evt.lengthComputable) {
                 target.progress[item.name].total = evt.total;
             }
@@ -120,8 +120,11 @@ var Combine = {
         xhr.onload = function(evt) {
             item.data = new Uint8Array(xhr.response);
             item.dataLength = item.data.length;
+            target.progress[item.name].total = item.dataLength;
+            target.progress[item.name].downloaded = item.dataLength;
             Combine.copyData(target, item);
             Combine.onPieceLoaded(target, item);
+            Combine.updateProgress(target);
             item.data = undefined;
         };
         xhr.send(null);
@@ -237,7 +240,9 @@ var Progress = {
     },
 
     removeProgress: function () {
-        Progress.progress.remove();
+        if (Progress.progress.parentElement !== null) {
+            Progress.progress.parentElement.removeChild(Progress.progress);
+        }
     }
 };
 
@@ -253,7 +258,7 @@ var CanvasInput = {
             default: break; // do not block other keys
         }
     },
-    
+
     onFocusIn : function(e) {
         window.addEventListener("keydown", CanvasInput.arrowKeysHandler, false);
     },
@@ -279,38 +284,182 @@ var Module = {
 
     _filesToPreload: [],
     _archiveLoaded: false,
+    _preLoadDone: false,
+    _waitingForArchive: false,
+
+    // Persistent storage
+    persistentStorage: true,
+    _syncInProgress: false,
+    _syncNeeded: false,
+    _syncInitial: false,
+    _syncMaxTries: 3,
+    _syncTries: 0,
 
     print: function(text) { console.log(text); },
     printErr: function(text) { console.error(text); },
 
     setStatus: function(text) { console.log(text); },
 
-    runApp: function(app_canvas_name, splash_image, archive_location_filter) {
-        app_canvas_name = (typeof app_canvas_name === 'undefined') ?  'canvas' : app_canvas_name;
-        splash_image = (typeof splash_image === 'undefined') ?  'splash_image.png' : splash_image;
-        archive_location_filter = (typeof archive_location_filter === 'undefined') ?  function(path) { return 'split' + path; } : archive_location_filter;
+    prepareErrorObject: function (err, url, line, column, errObj) {
+        line = typeof line == "undefined" ? 0 : line;
+        column = typeof column == "undefined" ? 0 : column;
+        url = typeof url == "undefined" ? "" : url;
+        var errorLine = url + ":" + line + ":" + column;
 
-        Module.canvas = document.getElementById(app_canvas_name);
-        Module.canvas.style.background = 'no-repeat center url("' + splash_image + '")';
+        var error = errObj || (typeof window.event != "undefined" ? window.event.error : "" ) || err || "Undefined Error";
+        var message = "";
+        var stack = "";
+        var backtrace = "";
 
-        // Override game keys
-        CanvasInput.addToCanvas(Module.canvas);
+        if (typeof error == "object" && typeof error.stack != "undefined" && typeof error.message != "undefined") {
+            stack = String(error.stack);
+            message = String(error.message);
+        } else {
+            stack = String(error).split("\n");
+            message = stack.shift();
+            stack = stack.join("\n");
+        }
+        stack = stack || errorLine;
 
-        // Load Facebook API
-        var fb = document.createElement('script');
-        fb.type = 'text/javascript';
-        fb.src = '//connect.facebook.net/en_US/sdk.js';
-        document.head.appendChild(fb);
+        var callLine = /at (\S+:\d*$)/.exec(message);
+        if (callLine) {
+            message = message.replace(/(at \S+:\d*$)/, "");
+            stack = callLine[1] + "\n" + stack;
+        }
 
-        // Add progress visuals
-        Progress.addProgress(Module.canvas);
+        message = message.replace(/(abort\(.+\)) at .+/, "$1");
+        stack = stack.replace(/\?{1}\S+(:\d+:\d+)/g, "$1");
+        stack = stack.replace(/ *at (\S+)$/gm, "@$1");
+        stack = stack.replace(/ *at (\S+)(?: \[as \S+\])? +\((.+)\)/g, "$1@$2");
+        stack = stack.replace(/^((?:Object|Array)\.)/gm, "");
+        stack = stack.split("\n");
 
-        // Load and assemble archive
-        Combine.addCombineCompletedListener(Module.onArchiveFileLoaded);
-        Combine.addAllTargetsBuiltListener(Module.onArchiveLoaded);
-        Combine.addProgressListener(Module.onArchiveLoadProgress);
-        Combine._archiveLocationFilter = archive_location_filter;
-        Combine.process(archive_location_filter('/archive_files.json'));
+        return { stack:stack, message:message };
+    },
+
+    hasWebGLSupport: function() {
+        var webgl_support = false;
+        try {
+            var canvas = document.createElement("canvas");
+            var gl = canvas.getContext("webgl") || canvas.getContext("experimental-webgl");
+            if (gl && gl instanceof WebGLRenderingContext) {
+                webgl_support = true;
+            }
+        } catch (error) {
+            console.log("An error occurred while detecting WebGL support: " + error);
+            webgl_support = false;
+        }
+
+        return webgl_support;
+    },
+
+    handleVisibilityChange: function () {
+        GLFW.onFocusChanged(document[Module.hiddenProperty] ? 0 : 1);
+    },
+
+    getHiddenProperty: function () {
+        if ('hidden' in document) return 'hidden';
+        var prefixes = ['webkit','moz','ms','o'];
+        for (var i = 0; i < prefixes.length; i++){
+            if ((prefixes[i] + 'Hidden') in document)
+                return prefixes[i] + 'Hidden';
+        }
+        return null;
+    },
+
+    setupVisibilityChangeListener: function() {
+        Module.hiddenProperty = Module.getHiddenProperty();
+        if( Module.hiddenProperty ) {
+            var eventName = Module.hiddenProperty.replace(/[H|h]idden/,'') + 'visibilitychange';
+            document.addEventListener(eventName, Module.handleVisibilityChange, false);
+        } else {
+            console.log("No document.hidden property found. The focus events won't be enabled.")
+        }
+    },
+
+    /**
+    * Module.runApp - Starts the application given a canvas element id
+    *
+    * 'extra_params' is an optional object that can have the following fields:
+    *
+    *     'splash_image':
+    *         Path to an image that should be used as a background image for
+    *         the canvas element.
+    *
+    *     'archive_location_filter':
+    *         Filter function that will run for each archive path.
+    *
+    *     'unsupported_webgl_callback':
+    *         Function that is called if WebGL is not supported.
+    *
+    *     'engine_arguments':
+    *         List of arguments (strings) that will be passed to the engine.
+    *
+    *     'persistent_storage':
+    *         Boolean toggling the usage of persistent storage.
+    *
+    *     'custom_heap_size':
+    *         Number of bytes specifying the memory heap size.
+    *
+    **/
+    runApp: function(app_canvas_id, extra_params) {
+        app_canvas_id = (typeof app_canvas_id === 'undefined') ?  'canvas' : app_canvas_id;
+
+        var params = {
+            splash_image: undefined,
+            archive_location_filter: function(path) { return 'split' + path; },
+            unsupported_webgl_callback: undefined,
+            engine_arguments: [],
+            persistent_storage: true,
+            custom_heap_size: undefined
+        };
+
+        for (var k in extra_params) {
+            if (extra_params.hasOwnProperty(k)) {
+                params[k] = extra_params[k];
+            }
+        }
+
+        Module.canvas = document.getElementById(app_canvas_id);
+        if (typeof params["splash_image"] !== 'undefined') {
+            Module.canvas.style.background = 'no-repeat center url("' + params["splash_image"] + '")';
+        }
+        Module.arguments = params["engine_arguments"];
+        Module.persistentStorage = params["persistent_storage"];
+        Module["TOTAL_MEMORY"] = params["custom_heap_size"];
+
+        if (Module.hasWebGLSupport()) {
+            // Override game keys
+            CanvasInput.addToCanvas(Module.canvas);
+
+            Module.setupVisibilityChangeListener();
+
+            // Load Facebook API
+            var fb = document.createElement('script');
+            fb.type = 'text/javascript';
+            fb.src = '//connect.facebook.net/en_US/sdk.js';
+            document.head.appendChild(fb);
+
+            // Add progress visuals
+            Progress.addProgress(Module.canvas);
+
+            // Load and assemble archive
+            Combine.addCombineCompletedListener(Module.onArchiveFileLoaded);
+            Combine.addAllTargetsBuiltListener(Module.onArchiveLoaded);
+            Combine.addProgressListener(Module.onArchiveLoadProgress);
+            Combine._archiveLocationFilter = params["archive_location_filter"];
+            Combine.process(Combine._archiveLocationFilter('/archive_files.json'));
+        } else {
+            Progress.addProgress(Module.canvas);
+            Progress.updateProgress(100, "Unable to start game, WebGL not supported");
+            Module.setStatus = function(text) {
+                if (text) Module.printErr('[missing WebGL] ' + text);
+            };
+
+            if (typeof params["unsupported_webgl_callback"] === "function") {
+                params["unsupported_webgl_callback"]();
+            }
+        }
     },
 
     onArchiveLoadProgress: function(downloaded, total) {
@@ -326,20 +475,64 @@ var Module = {
         Module._archiveLoaded = true;
         Progress.updateProgress(100, "Starting...");
 
-        if(typeof Module.run == 'undefined') {
-            /* If we are waiting for engine, let it autostart. */
-            Module.noInitialRun = false;
-        } else {
-            Module.preloadAll();
-            Progress.removeProgress();
-            Module.callMain();
+        if (Module._waitingForArchive) {
+            Module._preloadAndCallMain();
         }
     },
 
+    toggleFullscreen: function() {
+        if (GLFW.isFullscreen) {
+            GLFW.cancelFullScreen();
+        } else {
+            GLFW.requestFullScreen();
+        }
+    },
+
+    preSync: function(done) {
+        // Initial persistent sync before main is called
+        FS.syncfs(true, function(err) {
+            if(err) {
+                Module._syncTries += 1;
+                console.error("FS syncfs error: " + err);
+                if (Module._syncMaxTries > Module._syncTries) {
+                    Module.preSync(done);
+                } else {
+                    Module._syncInitial = true;
+                    done();
+                }
+            } else {
+                Module._syncInitial = true;
+                if (done !== undefined) {
+                    done();
+                }
+            }
+        });
+    },
+
     preloadAll: function() {
+        if (Module._preLoadDone) {
+            return;
+        }
+        Module._preLoadDone = true;
         for (var i = 0; i < Module._filesToPreload.length; ++i) {
             var item = Module._filesToPreload[i];
             FS.createPreloadedFile("", item.path, item.data, true, true);
+        }
+    },
+
+    // Tries to do a MEM->IDB sync
+    // It will flag that another one is needed if there is already one sync running.
+    persistentSync: function() {
+
+        // Need to wait for the initial sync to finish since it
+        // will call close on all its file streams which will trigger
+        // new persistentSync for each.
+        if (Module._syncInitial) {
+            if (Module._syncInProgress) {
+                Module._syncNeeded = true;
+            } else {
+                Module._startSyncFS();
+            }
         }
     },
 
@@ -348,13 +541,22 @@ var Module = {
         var dir = DMSYS.GetUserPersistentDataRoot();
         FS.mkdir(dir);
 
-        if (window.__indexedDB) {
+        // If IndexedDB is supported we mount the persistent data root as IDBFS,
+        // then try to do a IDB->MEM sync before we start the engine to get
+        // previously saved data before boot.
+        window.indexedDB = window.indexedDB || window.mozIndexedDB || window.webkitIndexedDB || window.msIndexedDB;
+        if (Module.persistentStorage && window.indexedDB) {
             FS.mount(IDBFS, {}, dir);
-            FS.syncfs(true, function(err) {
-                if(err) {
-                     throw "FS syncfs error: " + err;
-                }
+
+            // Patch FS.close so it will try to sync MEM->IDB
+            var _close = FS.close; FS.close = function(stream) { var r = _close(stream); Module.persistentSync(); return r; }
+
+            // Sync IDB->MEM before calling main()
+            Module.preSync(function() {
+                Module._preloadAndCallMain();
             });
+        } else {
+            Module._preloadAndCallMain();
         }
     }],
 
@@ -370,9 +572,54 @@ var Module = {
             Progress.removeProgress();
         }
     }],
+
+    _preloadAndCallMain: function() {
+        // If the archive isn't loaded,
+        // we will have to wait with calling main.
+        if (!Module._archiveLoaded) {
+            Module._waitingForArchive = true;
+        } else {
+
+            // Need to set heap size before calling main
+            TOTAL_MEMORY = Module["TOTAL_MEMORY"] || TOTAL_MEMORY;
+
+            Module.preloadAll();
+            Progress.removeProgress();
+            if (Module.callMain === undefined) {
+                Module.noInitialRun = false;
+            } else {
+                Module.callMain(Module.arguments);
+            }
+        }
+    },
+
+    // Wrap IDBFS syncfs call with logic to avoid multiple syncs
+    // running at the same time.
+    _startSyncFS: function() {
+        Module._syncInProgress = true;
+
+        if (Module._syncMaxTries > Module._syncTries) {
+            FS.syncfs(false, function(err) {
+                Module._syncInProgress = false;
+
+                if (err) {
+                    console.error("Module._startSyncFS error: " + err);
+                    Module._syncTries += 1;
+                }
+
+                if (Module._syncNeeded) {
+                    Module._syncNeeded = false;
+                    Module._startSyncFS();
+                }
+
+            });
+        }
+    },
 };
 
-window.onerror = function() {
+window.onerror = function(err, url, line, column, errObj) {
+    var errorObject = Module.prepareErrorObject(err, url, line, column, errObj);
+    Module.ccall('JSWriteDump', 'null', ['string'], [JSON.stringify(errorObject.stack)]);
     Module.setStatus('Exception thrown, see JavaScript console');
     Module.setStatus = function(text) {
         if (text) Module.printErr('[post-exception status] ' + text);

@@ -8,23 +8,10 @@
 
 		<title>Shapeshift 1.0</title>
 		<style>
-			canvas {
-			  /* Full app dimensions. Fit in container */
-			  width: 640px;
-			  height: 1136px;
-			  max-width: 100%;
-			  max-height: 100%;
-			}
-
 			.canvas-app-container {
-			  width: 640px;
-			  height: 1136px;
 			  background: rgb(255,255,255) no-repeat center url("try_game.png");
 			  /* A positioned parent for loading visuals */
 			  position: relative;
-			  /* Firefox fullscreen will resize container to screen. */
-			  text-align: center;
-			  vertical-align: middle;
 			}
 
 			.canvas-app-container:-webkit-full-screen {
@@ -37,8 +24,8 @@
 			  position: absolute;
 			  background-color: rgb(245, 245, 245);
 			  height: 20px;
-			  /* Fill up container width. */
-			  width: 100%;
+			  /* Progress same width as canvas. */
+			  width: 640px;
 			  bottom: 0px;
 			}
 
@@ -66,7 +53,7 @@
     <div id="fb-root"></div>
 
 	<div id="app-container" class="canvas-app-container">
-	    <canvas id="canvas" class="canvas-app-canvas" tabindex="1"></canvas>
+	    <canvas id="canvas" class="canvas-app-canvas" tabindex="1" width="640" height="1136"></canvas>
 	</div>
 
 	<button id="fullscreen" class="button">Fullscreen</button>
@@ -74,27 +61,24 @@
 	<!-- -->
 	  
 	  <script type='text/javascript' src="dmloader.js"></script>
-	  <script type='text/javascript' src="dmengine.js" async onload=""></script>
+	  <script type='text/javascript' src="Shapeshift.js" async onload=""></script>
 	<!-- -->
 
 	<script type='text/javascript'>
-		var archive_location_filter = function( path ) {
-			return ("archive" + path + "");
+		var extra_params = {
+			archive_location_filter: function( path ) {
+				return ("archive" + path + "");
+			},
+            
+			splash_image: "splash_image.png",
+			custom_heap_size: 268435456
 		}
 
-        Module.runApp("canvas", "splash_image.png", archive_location_filter);
+        Module.runApp("canvas", extra_params);
 
 	    /* Fullscreen button */
 	    document.getElementById("fullscreen").onclick = function (e) {
-	      /* Enter fullscreen, don't lock pointer and don't resize canvas down. */
-	      var elem = document.getElementById("app-container");
-	      var rfs = elem.requestFullscreen ||
-	                elem.requestFullScreen ||
-	                elem.mozRequestFullScreen ||
-	                elem.webkitRequestFullscreen ||
-	                (function() {});
-	      rfs.apply(elem, []);
-	      document.getElementById("canvas").focus();
+	      Module.toggleFullscreen();
 	    };
 	</script>
 </body>
