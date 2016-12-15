@@ -1,4 +1,5 @@
 --- Module to simplify sprite animation handling
+local url = require "utils.url"
 
 local M = {}
 
@@ -14,7 +15,7 @@ function M.play(sprite_url, animation_id, on_animation_done)
 	assert(sprite_url, "You must provide a sprite url")
 	assert(animation_id, "You must provide an animation id")
 	if on_animation_done then
-		callbacks[tostring(sprite_url)] = on_animation_done
+		callbacks[url.tostring(sprite_url)] = on_animation_done
 	end
 	msg.post(sprite_url, "play_animation", { id = animation_id })
 end
@@ -22,7 +23,7 @@ end
 --- Forward any calls to on_message from scripts using this module
 function M.on_message(message_id, message, sender)
 	if message_id == ANIMATION_DONE then
-		local sender_string = tostring(sender)
+		local sender_string = url.tostring(sender)
 		if callbacks[sender_string] then
 			local cb = callbacks[sender_string]
 			callbacks[sender_string] = nil

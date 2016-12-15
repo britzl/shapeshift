@@ -1,10 +1,13 @@
 --- Module to simplify the handling of collision response messages
 
+local url = require "utils.url"
+
 local M = {}
 
 local COLLISION_RESPONSE = hash("collision_response")
 
 local collisions = {}
+
 
 --- Register a collision callback to be invoked when the script calling this
 -- function receives a collision response with a specific group
@@ -15,8 +18,7 @@ function M.register(group, fn)
 	assert(fn, "you must provide a function")
 	group = type(group) == "userdata" and group or hash(group)
 	 
-	local url_as_string = tostring(msg.url())
-	local group_as_string = tostring(group)
+	local url_as_string = url.tostring(msg.url())
 	collisions[url_as_string] = collisions[url_as_string] or {}
 	table.insert(collisions[url_as_string], { group = group, fn = fn })
 end
@@ -25,7 +27,7 @@ end
 -- registered with @{register}
 -- @param group The group to unregister collision callback for or nil for all
 function M.unregister(group)
-	local url_as_string = tostring(msg.url())
+	local url_as_string = url.tostring(msg.url())
 	if not collisions[url_as_string] then
 		return
 	end
@@ -47,7 +49,7 @@ function M.on_message(message_id, message, sender)
 		return
 	end
 	
-	local url_as_string = tostring(msg.url())
+	local url_as_string = url.tostring(msg.url())
 	if not collisions[url_as_string] then
 		return
 	end

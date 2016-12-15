@@ -21,7 +21,7 @@ function final(self)
 end
 
 function update(self, dt)
-	flow.update()
+	flow.update(dt)
 	self.score = self.score + 5 * dt
 	gui.set_text(gui.get_node("score"), tostring(math.floor(self.score)))
 end
