@@ -17,8 +17,8 @@ local LEFT = hash("left")
 local RIGHT = hash("right")
 local UP = hash("up")
 
-local SCREEN_WIDTH = sys.get_config("display.width")
-local SCREEN_HEIGHT = sys.get_config("display.height")
+local SCREEN_WIDTH = sys.get_config_int("display.width")
+local SCREEN_HEIGHT = sys.get_config_int("display.height")
 
 
 local function shapeshift(self, animal)

@@ -7,7 +7,7 @@ local pickup_types = { animals.ELEPHANT, animals.RABBIT, animals.SNAKE }
 function init(self)
 	math.randomseed(os.time())
 	
-	local screen_width = sys.get_config("display.width")
+	local screen_width = sys.get_config_int("display.width")
 	
 	spawner.add({ "factory#stone1", "factory#stone2", "factory#stone3" }, 0.3, 0.5, 2, function(factory_url)
 		factory.create(factory_url, vmath.vector3(math.random(1,screen_width), -100, 0))
